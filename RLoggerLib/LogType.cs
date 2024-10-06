@@ -1,35 +1,6 @@
-﻿using System;
-
-namespace RLoggerThread
+﻿namespace RLoggerLib
 {
-    /// <summary>
-    /// Defines the targets of the log <br/>
-    /// Can be combined with the <c>|</c> operator
-    /// </summary>
-    [Flags]
-    public enum LogTarget : byte
-    {
-        /// <summary>
-        /// Enable logging to the debug output
-        /// </summary>
-        Debug = 1,
-
-        /// <summary>
-        /// Enable logging to the console
-        /// </summary>
-        Console = 2,
-
-        /// <summary>
-        /// Enable logging to a file
-        /// </summary>
-        File = 4,
-
-        /// <summary>
-        /// Enable logging to an email
-        /// </summary>
-        Mail = 8,
-    }
-
+    //TODO: Change LogType to LogLevel
     /// <summary>
     /// Defines the type of the log
     /// </summary>
@@ -48,7 +19,7 @@ namespace RLoggerThread
         /// <summary>
         /// Logs that track the general flow of the application. These logs should have long-term value.
         /// </summary>
-        Information = 2,
+        Info = 2,
 
         /// <summary>
         /// Logs that highlight an abnormal or unexpected event in the application flow, but do not otherwise cause the application execution to stop.
