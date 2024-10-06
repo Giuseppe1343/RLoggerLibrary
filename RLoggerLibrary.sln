@@ -3,7 +3,19 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.11.35222.181
 MinimumVisualStudioVersion = 10.0.40219.1
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "RLoggerThread", "RLoggerThread\RLoggerThread.csproj", "{CA099D6D-54C1-4BE4-B98E-F2684755A03A}"
+EndProject
 Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{CA099D6D-54C1-4BE4-B98E-F2684755A03A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{CA099D6D-54C1-4BE4-B98E-F2684755A03A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{CA099D6D-54C1-4BE4-B98E-F2684755A03A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{CA099D6D-54C1-4BE4-B98E-F2684755A03A}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
 	EndGlobalSection
