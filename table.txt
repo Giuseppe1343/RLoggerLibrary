@@ -1,0 +1,8 @@
+|   |   |   |
+|---|---|---|
+| [RLogger Class](#rlogger-class) | [IRLogger Interface](#irlogger-interface) | [IRLoggerExtensions Class](#irloggerextensions-class) |
+| [LogDatabaseCreationOptions Class](#logdatabasecreationoptions-class) | [DatabaseFileNameDateSuffix Enum](#databasefilenamedatesuffix-enum) | [TableCreationInterval Enum](#tablecreationinterval-enum) |
+| [LogEntity Class](#logentity-class) | [LogType Enum](#logtype-enum) | [ILoggingTarget Interface](#iloggingtarget-interface) |
+| [IRLoggerExtensions Class](#irloggerextensions-class) | [TextFileLoggingTargetOptions Class](#textfileloggingtargetoptions-class) | [LogFileNamingConvention Enum](#logfilenamingconvention-enum) |
+| [WindowsEventLoggingTargetOptions Class](#windowseventloggingtargetoptions-class) | [MailLoggingTargetOptions Class](#mailloggingtargetoptions-class) | [MailLoggingTarget Class](#mailloggingtarget-class) |
+|   |   |   |

@@ -14,7 +14,7 @@ namespace RLoggerLib.LoggingTargets
         private readonly WindowsEventLoggingTargetOptions _options;
         public WindowsEventLoggingTarget(WindowsEventLoggingTargetOptions options)
         {
-            if(!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+            if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
                 throw new PlatformNotSupportedException("WindowsEventLoggingTarget is only supported on Windows.");
 
             _options = options;
@@ -71,7 +71,7 @@ namespace RLoggerLib.LoggingTargets
         /// <b>Only supported on Windows.</b>
         /// </summary>
         /// <param name="options"> The options for the windows event logging. </param>
-        /// <exception cref="PlatformNotSupportedException"> Thrown when the current platform is not Windows. </exception>"
+        /// <exception cref="PlatformNotSupportedException"> Thrown when the current platform is not Windows. </exception>
         public static IRLogger AddWindowsEventLogging(this IRLogger logger, WindowsEventLoggingTargetOptions options)
         {
             logger.AddLoggingTarget(new WindowsEventLoggingTarget(options));

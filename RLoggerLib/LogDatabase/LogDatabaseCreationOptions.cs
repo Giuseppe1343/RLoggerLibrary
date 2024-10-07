@@ -1,8 +1,4 @@
-﻿using RLoggerLib.LoggingTargets;
-using System;
-using System.IO;
-
-namespace RLoggerLib
+﻿namespace RLoggerLib
 {
     public enum DatabaseFileNameDateSuffix
     {

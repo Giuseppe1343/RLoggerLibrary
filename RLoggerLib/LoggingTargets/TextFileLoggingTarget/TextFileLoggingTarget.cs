@@ -6,7 +6,7 @@ using System.Text;
 namespace RLoggerLib.LoggingTargets
 {
     /// <summary>
-    /// Default logging target implementation for the text file logging. <br/>
+    /// Default logging target implementation for the text file logging.
     /// </summary>
     internal class TextFileLoggingTarget : ILoggingTarget
     {

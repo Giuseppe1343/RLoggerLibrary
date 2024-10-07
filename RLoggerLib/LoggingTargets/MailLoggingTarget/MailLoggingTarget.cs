@@ -1,17 +1,13 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.ComponentModel;
-using System.Diagnostics;
-using System.Drawing;
 using System.IO;
 using System.Net;
 using System.Net.Mail;
-using System.Text;
 
 namespace RLoggerLib.LoggingTargets
 {
     /// <summary>
-    /// Default logging target implementation for the mail logging. <br/>
+    /// Default logging target implementation for the mail logging.
     /// </summary>
     public class MailLoggingTarget : ILoggingTarget, IDisposable
     {
@@ -113,6 +109,10 @@ namespace RLoggerLib.LoggingTargets
     }
     public static partial class IRLoggerExtensions
     {
+        /// <summary>
+        /// Adds mail logging to the logger.
+        /// </summary>
+        /// <param name="options"> The options for the mail logging. </param>
         public static IRLogger AddMailLogging(this IRLogger logger, MailLoggingTargetOptions options)
         {
             logger.AddLoggingTarget(new MailLoggingTarget(options));

@@ -1,10 +1,8 @@
-﻿using System;
+﻿using RLoggerLib.LoggingTargets;
+using System;
 using System.Collections.Concurrent;
-using System.Collections.Generic;
-using System.Diagnostics;
-using System.Net.Mail;
 using System.Threading;
-using RLoggerLib.LoggingTargets;
+using static System.Collections.Specialized.BitVector32;
 
 namespace RLoggerLib
 {
@@ -14,13 +12,13 @@ namespace RLoggerLib
     public sealed class RLogger : IRLogger
     {
         /// <summary>
-        /// The <see cref="Log"/> call can be made by multiple threads.<br/><br/>
+        /// The <see cref="Log"/> call can be made by multiple threads.<br/> <br/>
         /// <see cref="ILoggingTarget.Log"/> to be called only by the <see cref="_loggerThread"/> itself.
         /// </summary>
         public const bool IsThreadSafe = true;
 
         /// <summary>
-        /// Only one instance of the logger can be created. <br/>
+        /// Only one instance of the logger can be created.
         /// </summary>
         public const bool IsSupportMultipleInstance = false;
 
@@ -29,15 +27,15 @@ namespace RLoggerLib
 
         /// <summary>
         /// Register the main thread for determine the logger continue to log or not.
+        /// <b>This method must be called only once and from the main thread.</b>
         /// </summary>
         /// <remarks>
-        /// <b>This method must be called only once and from the main thread.</b>
         /// <see cref="_loggerThread"/> is not a background thread because we do not want it to be terminated by the main thread before it completes logging. In order not to prevent the application from closing, the logger should exit gracefully. For this, we need a reference to the Main Thread.
         /// </remarks>
         /// <exception cref="InvalidOperationException"> Multiple register or registered from non-main thread. </exception>
         public static void RegisterMainThread()
         {
-            if(_mainThread is not null)
+            if (_mainThread is not null)
                 throw new InvalidOperationException(Helpers.MULTIPLE_REGISTER_EXCEPTION_MESSAGE);
 
             if (Thread.CurrentThread.ManagedThreadId != 1)
@@ -46,21 +44,28 @@ namespace RLoggerLib
             _mainThread = Thread.CurrentThread;
         }
 
-        private static bool _isCreatedOnce = false;
         private static RLogger? _instance = null;
 
         /// <summary>
-        /// The single instance of the logger.
+        /// The <see cref="Instance"/>'s alive status
         /// </summary>
+        public static bool IsAlive => _instance is not null && _instance._loggerThread.IsAlive;
+
+        private static readonly ManualResetEventSlim _creationCompleted = new(true);
+
+        /// <summary>
+        /// The logger instance can only be accessed from here. Object creation is not allowed.
+        /// </summary>
+        /// <exception cref="InvalidOperationException"> When Instance is not created </exception>
         public static RLogger Instance
         {
             get
             {
-                if (!_isCreatedOnce)
-                    throw new InvalidOperationException(Helpers.INSTANCE_NOT_CREATED_EXCEPTION_MESSAGE);
+                // Wait for the creation to be completed.
+                _creationCompleted.Wait();
 
                 if (_instance is null)
-                    throw new InvalidOperationException(Helpers.INSTANCE_TERMINATED_EXCEPTION_MESSAGE);
+                        throw new InvalidOperationException(Helpers.INSTANCE_NOT_CREATED_EXCEPTION_MESSAGE);
 
                 return _instance;
             }
@@ -69,63 +74,58 @@ namespace RLoggerLib
         private static readonly Mutex _lock = new();
 
         /// <summary>
-        /// Create a new instance of <see cref="RLogger"/> accessible through the <see cref="Instance"/> property.
+        /// Create a new instance of <see cref="RLogger"/> accessible through the <see cref="Instance"/> property. <br/>
+        /// This also re-creates the instance if it's already created.
         /// </summary>
         /// <param name="options"> The options for the logger's database. </param>
-        /// <param name="creationOptions"> An action to set the creation options for the logger. <br/> Example: <c> (logger) => { logger.AddDebugLogging(); } </c> </param>
+        /// <param name="creationOptions"> An action to set the creation options for the logger. <br/>
+        /// Example: <c> (logger) => { logger.AddDebugLogging(); } </c> </param>
         /// <exception cref="InvalidOperationException"> Main thread not registered or Instance already created. </exception>
         public static void Create(LogDatabaseCreationOptions options, Action<IRLogger> creationOptions)
         {
             if (_mainThread is null)
                 throw new InvalidOperationException(Helpers.UNREGISTERED_EXCEPTION_MESSAGE);
 
-            if (_instance is not null)
-                throw new InvalidOperationException(Helpers.INSTANCE_ALREADY_CREATED_EXCEPTION_MESSAGE);
-
-            // Mutex is used for thread safety. If the lock is not taken, the method will return.
+            // If mutex lock cannot be acquired, return.
             if (!_lock.WaitOne(0))
                 return;
+
+            // Start of the critical section.
+
+            // Start blocking the RLogger.Instance consumers until the creation is completed.
+            _creationCompleted.Reset();
+
+            // If the instance is not null, terminate it and create a new one.
+            if (_instance is not null)
+            {
+                _instance._terminateCalled = true;
+                if (_instance._loggerThread.IsAlive)
+                    _instance._loggerThread.Join();
+                _instance.InternalDispose();
+                _instance = null;
+            }
 
             _instance = new RLogger(options ?? LogDatabaseCreationOptions.Default);
 
             if (creationOptions is not null)
                 creationOptions(_instance);
 
-            _isCreatedOnce = true;
+            // Stop blocking the RLogger.Instance consumers.
+            _creationCompleted.Set();
 
+            // End of the critical section.
             _lock.ReleaseMutex();
         }
 
-        /// <inheritdoc cref="Create"/>
+        /// <inheritdoc cref="Create(LogDatabaseCreationOptions, Action{IRLogger})"/>
         public static void Create(Action<IRLogger> creationOptions) => Create(null, creationOptions);
 
-        /// <inheritdoc cref="Create"/>
+        /// <inheritdoc cref="Create(LogDatabaseCreationOptions, Action{IRLogger})"/>
         public static void Create(LogDatabaseCreationOptions options) => Create(options, null);
 
-        /// <inheritdoc cref="Create"/>
+        /// <inheritdoc cref="Create(LogDatabaseCreationOptions, Action{IRLogger})"/>
         public static void Create() => Create(null, null);
 
-        /// <summary>
-        /// Terminate the <see cref="Instance"/> and free up the resources.
-        /// </summary>
-        public static void Destroy()
-        {
-            // If the instance is not created, return.
-            if (_instance is null)
-                return;
-
-            // Mutex is used for thread safety. If the lock is not taken, the method will return.
-            if (!_lock.WaitOne(0))
-                return;
-
-            _instance._terminateCalled = true;
-            if (_instance._loggerThread.IsAlive)
-                _instance._loggerThread.Join();
-            _instance.InternalDispose();
-            _instance = null;
-
-            _lock.ReleaseMutex();
-        }
         #endregion
 
         #region Instance Members
@@ -164,7 +164,7 @@ namespace RLoggerLib
         public void AddLoggingTarget(ILoggingTarget loggingTarget)
         {
             if (_terminateCalled)
-                throw new InvalidOperationException(Helpers.THIS_INSTANCE_TERMINATED_EXCEPTION_MESSAGE);
+                throw new InvalidOperationException(Helpers.INSTANCE_TERMINATED_EXCEPTION_MESSAGE);
 
             _loggingTargets.Add(loggingTarget);
         }
@@ -173,7 +173,7 @@ namespace RLoggerLib
         public void Log(LogType logType, string message, string source, string sourceId = "")
         {
             if (_terminateCalled)
-                throw new InvalidOperationException(Helpers.THIS_INSTANCE_TERMINATED_EXCEPTION_MESSAGE);
+                throw new InvalidOperationException(Helpers.INSTANCE_TERMINATED_EXCEPTION_MESSAGE);
 
             _logBlockingQueue.Add(new LogEntity()
             {
@@ -209,6 +209,7 @@ namespace RLoggerLib
             {
                 InternalDispose();
                 _lock.Dispose();
+                _creationCompleted.Dispose();
             }
         }
 
@@ -223,13 +224,5 @@ namespace RLoggerLib
             _logBlockingQueue.Dispose();
         }
         #endregion
-    }
-    public static partial class IRLoggerExtensions
-    {
-        public static IRLogger AddCustomLoggingTarget(this IRLogger logger, ILoggingTarget loggingTarget)
-        {
-            logger.AddLoggingTarget(loggingTarget);
-            return logger;
-        }
     }
 }

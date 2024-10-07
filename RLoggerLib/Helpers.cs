@@ -1,25 +1,17 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.ComponentModel.Design;
 using System.Diagnostics;
-using System.Diagnostics.Tracing;
 using System.IO;
 using System.Linq;
-using System.Security;
-using System.Text;
-using System.Xml.Serialization;
 
 namespace RLoggerLib
 {
-    public static class Helpers
+    internal static class Helpers
     {
         internal const string MULTIPLE_REGISTER_EXCEPTION_MESSAGE = "The logger can be registered by calling it only once.";
         internal const string REGISTERED_FROM_NON_MAIN_THREAD_EXCEPTION_MESSAGE = "The logger must be registered from the main thread. Thread.CurrentThread.ManagedThreadId must be 1.";
         internal const string UNREGISTERED_EXCEPTION_MESSAGE = "To create the logger you need to call RegisterMainThread() from the main thread.";
         internal const string INSTANCE_NOT_CREATED_EXCEPTION_MESSAGE = "The logger is not created. Please Create() it first.";
-        internal const string INSTANCE_ALREADY_CREATED_EXCEPTION_MESSAGE = "The logger is already created. If you want to recreate, Terminate() it first.";
-        internal const string INSTANCE_TERMINATED_EXCEPTION_MESSAGE = "The logger has been terminated. If you want to use, Create() it.";
-        internal const string THIS_INSTANCE_TERMINATED_EXCEPTION_MESSAGE = "This logger instance has been terminated. Make sure to create a new instance and get the logger from RLoggerThread.Instance property.";
+        internal const string INSTANCE_TERMINATED_EXCEPTION_MESSAGE = "This logger instance has been terminated. Make sure to create a new instance and get the logger from RLoggerThread.Instance property.";
 
         public static string DefaultLogDirectory => AppDomain.CurrentDomain.BaseDirectory + "Logs";
 
@@ -50,7 +42,7 @@ namespace RLoggerLib
             return false;
         }
 
-        public static void TestFilePath(string directoryPath,string filePath, string extension = ".txt")
+        public static void TestFilePath(string directoryPath, string filePath, string extension = ".txt")
         {
             Directory.CreateDirectory(directoryPath);
             string pathForValidityCheck = directoryPath + filePath + "__" + extension;

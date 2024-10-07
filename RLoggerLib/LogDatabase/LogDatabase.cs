@@ -14,7 +14,7 @@ namespace RLoggerLib
         private readonly LogDatabaseCreationOptions _options;
 
         // Cache the if file path is constant
-        private readonly string  _constantFilePath;
+        private readonly string _constantFilePath;
 
         /// <summary>
         /// Create a new instance of <see cref="LogDatabase"/> with the <paramref name="options"/>.

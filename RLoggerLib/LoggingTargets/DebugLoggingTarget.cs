@@ -3,7 +3,7 @@
 namespace RLoggerLib.LoggingTargets
 {
     /// <summary>
-    /// Default logging target implementation for the debug logging. <br/>
+    /// Default logging target implementation for the debug logging.
     /// </summary>
     internal class DebugLoggingTarget : ILoggingTarget
     {
