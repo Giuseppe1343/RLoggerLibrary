@@ -1,6 +1,6 @@
 # RLoggerLib
 
-[![License: GPL3.0](https://img.shields.io/badge/License-GPL3.0-darkred.svg)](https://opensource.org/licenses/MIT) ![Environment: Windows](https://img.shields.io/badge/Environment-Windows-blue)  ![IDE: VisualStudio](https://img.shields.io/badge/IDE-VisualStudio-purple) 
+[![License: AGPL3.0](https://img.shields.io/badge/License-AGPL3.0-darkred.svg)](https://opensource.org/licenses/MIT) ![Environment: Windows](https://img.shields.io/badge/Environment-Windows-blue)  ![IDE: VisualStudio](https://img.shields.io/badge/IDE-VisualStudio-purple) 
 
 ![image](https://github.com/user-attachments/assets/190e7b40-ff01-4e09-90bd-ffb8525c0355)
 ```
@@ -77,4 +77,4 @@ Active Development
 
 ## License
 
-This project is licensed under the GPL-3.0 License.
+This project is licensed under the AGPL-3.0 License.
