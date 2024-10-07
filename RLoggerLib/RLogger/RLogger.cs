@@ -2,7 +2,6 @@
 using System;
 using System.Collections.Concurrent;
 using System.Threading;
-using static System.Collections.Specialized.BitVector32;
 
 namespace RLoggerLib
 {
@@ -65,7 +64,7 @@ namespace RLoggerLib
                 _creationCompleted.Wait();
 
                 if (_instance is null)
-                        throw new InvalidOperationException(Helpers.INSTANCE_NOT_CREATED_EXCEPTION_MESSAGE);
+                    throw new InvalidOperationException(Helpers.INSTANCE_NOT_CREATED_EXCEPTION_MESSAGE);
 
                 return _instance;
             }

@@ -1,7 +1,6 @@
 ﻿using RLoggerLib;
 using RLoggerLib.LoggingTargets;
 using System;
-using System.Diagnostics;
 using System.Windows.Forms;
 
 namespace WindowsFormsApp
@@ -14,32 +13,22 @@ namespace WindowsFormsApp
         [STAThread]
         static void Main()
         {
+            // Register the main thread
             RLogger.RegisterMainThread();
-            RLogger.Create(LogDatabaseCreationOptions.Default, (logger) =>
-            {
-                logger.AddDebugLogging();
-                logger.AddTextFileLogging(new TextFileLoggingTargetOptions()
-                {
-                    FileNamingConvention = LogFileNamingConvention.SourceDate,
-                    CustomName = "WindowsFormsApp",
-                    DateFormat = "yyyy-MM-dd",
-                });
-                logger.AddMailLogging(new MailLoggingTargetOptions()
-                {
-                    //Defaults are predefined in MailLoggingTargetOptions
 
-                    MailServer = "smtp.gmail.com", // Example mail server
-                    MailPort = 587, // google mail port
-                    MailTo = new string[] { "RECEIVER1 ADDRESS", "RECEIVER2 ADDRESS" }, // Example receiver mail addresses, you can add more or use only one
-                    MailUser = "YOUR MAIL ADDRESS",
-                    MailPassword = "YOUR MAIL PASSWORD",
+            // Create empty logger
+            RLogger.Create();
 
-                });
-            });
+            // Late binding of logging targets
+            RLogger.Instance.AddDebugLogging();
+
+            RLogger.Instance.LogInfo("Application is starting");
+
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
             Application.Run(new Form1());
-            RLogger.Instance.LogInfo("Application is closed");
+
+            RLogger.Instance.LogInfo("Application is closing");
         }
     }
 }

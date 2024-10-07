@@ -1,14 +1,6 @@
 ﻿using RLoggerLib;
+using RLoggerLib.LoggingTargets;
 using System;
-using System.CodeDom;
-using System.Collections.Generic;
-using System.ComponentModel;
-using System.Data;
-using System.Drawing;
-using System.Linq;
-using System.Reflection;
-using System.Text;
-using System.Threading.Tasks;
 using System.Windows.Forms;
 
 namespace WindowsFormsApp
@@ -19,7 +11,14 @@ namespace WindowsFormsApp
         public Form1()
         {
             InitializeComponent();
-            _logger.LogDebug("Form1 is initialized","ExampleSource");
+            _logger.LogDebug("Form1 is initialized", "ExampleSource");
+            _logger.AddTextFileLogging(new TextFileLoggingTargetOptions()
+            {
+                FileNamingConvention = LogFileNamingConvention.CustomDate,
+                CustomName = "WindowsFormsApp",
+                DateFormat = "yyyy-MM-dd",
+            });
+            _logger.LogTrace("Text file logging is added", "ExampleSource", "B2");
         }
 
         private void button1_Click(object sender, EventArgs e)

@@ -1,5 +1,3 @@
-
-using Microsoft.Extensions.Logging;
 using RLoggerLib;
 using RLoggerLib.LoggingTargets;
 
@@ -12,20 +10,32 @@ namespace WebAPIApp
 
             var builder = WebApplication.CreateBuilder(args);
 
+            // Register the main thread
             RLogger.RegisterMainThread();
-            RLogger.Create(LogDatabaseCreationOptions.Default, (logger) =>
+
+            // Create logger with adding some logging targets
+            RLogger.Create((logger) =>
             {
                 logger.AddDebugLogging()
                     .AddConsoleLogging()
-                    .AddTextFileLogging(new TextFileLoggingTargetOptions()
+                    .AddTextFileLogging(TextFileLoggingTargetOptions.Default)
+                    .AddMailLogging(new MailLoggingTargetOptions()
                     {
-                        FileNamingConvention = LogFileNamingConvention.CustomDate,
-                        CustomName = "WebAPI",
-                        DateFormat = "yyyy-MM-dd",
-                    });
+                        MinRequiredSeverity = LogType.Critical, //Default is LogType.Error
+                        MailServer = "smtp.gmail.com", // Example mail server
+                        MailPort = 587, // google mail port
+                        MailTo = new string[] { "RECEIVER1 ADDRESS", "RECEIVER2 ADDRESS" },
+                        MailUser = "YOUR MAIL ADDRESS",
+                        MailPassword = "YOUR MAIL PASSWORD",
+                    })
+                    // For Windows Event Logging, you need to run the application as an administrator on Windows.
+                    .AddWindowsEventLogging(WindowsEventLoggingTargetOptions.Default);
             });
+
+            // Add logging to the DI container as a singleton service
+            builder.Services.AddSingleton<IRLogger, RLogger>((sp) => RLogger.Instance);
+
             // Add services to the container.
-            builder.Services.AddSingleton<IRLogger,RLogger>((sp) => RLogger.Instance);
             builder.Services.AddControllers();
 
             // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
