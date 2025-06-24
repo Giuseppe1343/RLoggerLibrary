@@ -115,7 +115,7 @@ RLogger.Create((logger) =>
 		.AddTextFileLogging(TextFileLoggingTargetOptions.Default)
 		.AddMailLogging(new MailLoggingTargetOptions()
 		{
-			MinRequiredSeverity = LogType.Critical, //Default is LogType.Error
+			MinRequiredSeverity = LogLevel.Critical, //Default is LogLevel.Error
 			MailServer = "smtp.gmail.com", // Example mail server
 			MailPort = 587, // google mail port
 			MailTo = new string[] { "RECEIVER1 ADDRESS", "RECEIVER2 ADDRESS" },
@@ -165,7 +165,7 @@ static void Main(string[] args)
 	{
 		// Add debug, console and custom logging targets
 		logger.AddDebugLogging()
-			.AddConsoleLogging(LogType.Debug)
+			.AddConsoleLogging(LogLevel.Debug)
 			.AddCustomLoggingTarget(new DemoLoggingTarget());
 	});
 
