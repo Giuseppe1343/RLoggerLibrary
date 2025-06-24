@@ -9,17 +9,17 @@ namespace RLoggerLib.LoggingTargets
     /// <summary>
     /// Default logging target implementation for the mail logging.
     /// </summary>
-    public class MailLoggingTarget : ILoggingTarget, IDisposable
+    public class MailLoggingTarget : ILogTarget, IDisposable
     {
         private readonly string _internalErrorLogFilePath = $"{Helpers.DefaultLogDirectory.NormalizeDirectoryPath()}MailSendError_{DateTime.Today:yyyyMMdd}.log";
 
-        private readonly MailLoggingTargetOptions _options;
+        private readonly MailLogTargetSettings _options;
 
         private readonly MailMessage _eMail;
         private readonly SmtpClient _smtpClient;
         private bool _disposed;
 
-        public MailLoggingTarget(MailLoggingTargetOptions options)
+        public MailLoggingTarget(MailLogTargetSettings options)
         {
             _options = options;
 
@@ -40,11 +40,11 @@ namespace RLoggerLib.LoggingTargets
         }
 
         /// <inheritdoc/>
-        public void Log(LogEntity logEntity)
+        public void Log(RLog logEntity)
         {
 
-            // If the log type is less than the minimum required severity or the repeated error count is greater than the maximum repeated error count, do not send the mail.
-            if (logEntity.LogType < _options.MinRequiredSeverity || logEntity.TodaysRepetitionCount > _options.MailMaxRepeatedErrorCount)
+            // If the log Level is less than the minimum required severity or the repeated error count is greater than the maximum repeated error count, do not send the mail.
+            if (logEntity.LogLevel < _options.MinRequiredSeverity || logEntity.TodayDuplicateCount > _options.MailMaxRepeatedErrorCount)
                 return;
 
             try
@@ -61,7 +61,7 @@ namespace RLoggerLib.LoggingTargets
                 Directory.CreateDirectory(Helpers.DefaultLogDirectory);
 
                 // Append the error to the mail send error log
-                File.AppendAllText(_internalErrorLogFilePath, $"[{DateTime.Now:T}] {LogType.Error}: RLogger.LoggingTargets.MailLoggingTarget - An error occured while sending the mail for this LogEntity ({logEntity.ToLogString()}).{Environment.NewLine}ExceptionMessage: {ex.Message}{Environment.NewLine}");
+                File.AppendAllText(_internalErrorLogFilePath, $"[{DateTime.Now:T}] {LogLevel.Error}: RLogger.LoggingTargets.MailLoggingTarget - An error occured while sending the mail for this LogEntity ({logEntity.ToLogString()}).{Environment.NewLine}ExceptionMessage: {ex.Message}{Environment.NewLine}");
             }
         }
 
@@ -72,18 +72,18 @@ namespace RLoggerLib.LoggingTargets
 
         protected virtual string GetMailBody(LogEntity logEntity)
         {
-            var color = logEntity.LogType switch
+            var color = logEntity.LogLevel switch
             {
-                LogType.Trace => "#8c8c94",
-                LogType.Debug => "#8c8c94", //4e3fa8 - VS Purple
-                LogType.Info => "#1e90ff",
-                LogType.Warning => "#ff8c00",
-                LogType.Error => "#d40000",
-                LogType.Critical => "#7c0a02",
-                _ => throw new InvalidEnumArgumentException(nameof(logEntity.LogType), (int)logEntity.LogType, typeof(LogType))
+                LogLevel.Trace => "#8c8c94",
+                LogLevel.Debug => "#8c8c94", //4e3fa8 - VS Purple
+                LogLevel.Info => "#1e90ff",
+                LogLevel.Warning => "#ff8c00",
+                LogLevel.Error => "#d40000",
+                LogLevel.Critical => "#7c0a02",
+                _ => throw new InvalidEnumArgumentException(nameof(logEntity.LogLevel), (int)logEntity.LogLevel, typeof(LogLevel))
             };
 
-            return $"<table cellspacing=\"20\" cellpadding=\"10\" style=\"width:100%;border-collapse:collapse;border:1px solid #a7a9ac;font-family:Tahoma;font-size:14px\" border=\"1px\"><tbody><tr style=\"background-color:{color};color:White;font-weight:bold;font-size:20px;height:70px\"><th style=\"width:75%;text-align:start;padding-left:30px;border:0\" colspan=\"3\">{logEntity.Source}</th><th style=\"text-align:right;padding-right:30px;border:0\">{logEntity.LogType}</th></tr><tr style=\"background-color:#e3e3e3;font-weight:bold;font-size:16px\"><td style=\"width:25%\">Source Id</td><td style=\"width:25%\">Date</td><td style=\"width:25%\">Time</td><td>Repetition Count</td></tr><tr><td>{logEntity.SourceId}</td><td>{logEntity.LogDateTime:d}</td><td>{logEntity.LogDateTime:T}</td><td>{logEntity.TodaysRepetitionCount}</td></tr><tr><td style=\"background-color:#a7a9ac;padding:1\" colspan=\"4\"></td></tr><tr><td style=\"background-color:#f4f4f4;font-weight:bold;font-size:16px;color:#626262\" colspan=\"4\">Log Message</td></tr><tr><td colspan=\"4\">{logEntity.Message.Replace(Environment.NewLine, "<br>")}</td></tr></tbody></table><p style=\"padding-left:5;font-family:Tahoma;font-size:12px;color:#626262\">RLogger 3.0.0 V20241007</p>";
+            return $"<table cellspacing=\"20\" cellpadding=\"10\" style=\"width:100%;border-collapse:collapse;border:1px solid #a7a9ac;font-family:Tahoma;font-size:14px\" border=\"1px\"><tbody><tr style=\"background-color:{color};color:White;font-weight:bold;font-size:20px;height:70px\"><th style=\"width:75%;text-align:start;padding-left:30px;border:0\" colspan=\"3\">{logEntity.Source}</th><th style=\"text-align:right;padding-right:30px;border:0\">{logEntity.LogLevel}</th></tr><tr style=\"background-color:#e3e3e3;font-weight:bold;font-size:16px\"><td style=\"width:25%\">Source Id</td><td style=\"width:25%\">Date</td><td style=\"width:25%\">Time</td><td>Repetition Count</td></tr><tr><td>{logEntity.SourceId}</td><td>{logEntity.LogDateTime:d}</td><td>{logEntity.LogDateTime:T}</td><td>{logEntity.TodaysRepetitionCount}</td></tr><tr><td style=\"background-color:#a7a9ac;padding:1\" colspan=\"4\"></td></tr><tr><td style=\"background-color:#f4f4f4;font-weight:bold;font-size:16px;color:#626262\" colspan=\"4\">Log Message</td></tr><tr><td colspan=\"4\">{logEntity.Message.Replace(Environment.NewLine, "<br>")}</td></tr></tbody></table><p style=\"padding-left:5;font-family:Tahoma;font-size:12px;color:#626262\">RLogger 3.0.0 V20241007</p>";
         }
 
         #region IDisposable Support
@@ -113,7 +113,7 @@ namespace RLoggerLib.LoggingTargets
         /// Adds mail logging to the logger.
         /// </summary>
         /// <param name="options"> The options for the mail logging. </param>
-        public static IRLogger AddMailLogging(this IRLogger logger, MailLoggingTargetOptions options)
+        public static IRLogger AddMailLogging(this IRLogger logger, MailLogTargetSettings options)
         {
             logger.AddLoggingTarget(new MailLoggingTarget(options));
             return logger;

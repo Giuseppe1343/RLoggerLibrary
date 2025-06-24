@@ -14,33 +14,8 @@ namespace RLoggerLib
         internal const string INSTANCE_TERMINATED_EXCEPTION_MESSAGE = "This logger instance has been terminated. Make sure to create a new instance and get the logger from RLoggerThread.Instance property.";
 
         public static string DefaultLogDirectory => AppDomain.CurrentDomain.BaseDirectory + "Logs";
+        public static string InternalLogDirectory => AppDomain.CurrentDomain.BaseDirectory + "Logs" + Path.DirectorySeparatorChar + "InternalLogs";
 
-        static Helpers()
-        {
-            AppDomain.CurrentDomain.UnhandledException += (s, e) =>
-            {
-                var ex = e.ExceptionObject as Exception;
-                bool isLibraryException = IsLibraryException(ex);
-                File.AppendAllText(DefaultLogDirectory + Path.DirectorySeparatorChar + "rloggerlib_internal.log", $"--------------------------------{Environment.NewLine}An Unhandled Exception Occured. {ex}{Environment.NewLine}--------------------------------{Environment.NewLine}");
-            };
-        }
-
-        private static bool IsLibraryException(Exception? ex)
-        {
-            if (ex is null)
-                return false;
-
-            var stackTrace = new StackTrace(ex, true);
-
-            foreach (var frame in stackTrace.GetFrames())
-            {
-                var method = frame.GetMethod();
-                if (method.DeclaringType.Namespace.StartsWith("RLogger"))
-                    return true;
-            }
-
-            return false;
-        }
 
         public static void TestFilePath(string directoryPath, string filePath, string extension = ".txt")
         {

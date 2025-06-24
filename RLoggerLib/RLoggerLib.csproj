@@ -4,12 +4,41 @@
 	  <TargetFramework>netstandard2.0</TargetFramework>
 	  <LangVersion>latest</LangVersion>
 	  <Nullable>enable</Nullable>
-	  <GenerateDocumentationFile>true</GenerateDocumentationFile>
+	  <!--<GenerateDocumentationFile>true</GenerateDocumentationFile>-->
+	  <Version>2.0.0</Version>
+	  <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
+	  <Title>RLoggerLibrary</Title>
+	  <PackageProjectUrl>https://github.com/Giuseppe1343/RLoggerLibrary</PackageProjectUrl>
+	  <RepositoryUrl>https://github.com/Giuseppe1343/RLoggerLibrary</RepositoryUrl>
+	  <Description>RLoggerLib is a library that performs logging operations with minimal latency without blocking the main thread. It is designed to be thread-safe, and you can add your own logging targets.</Description>
+	  <PackageTags>logger;async;thread;netcore;netframework;netstandard</PackageTags>
+	  <PackageReadmeFile>README.md</PackageReadmeFile>
+	  <PackageLicenseFile>LICENSE.txt</PackageLicenseFile>
+	  <PackageRequireLicenseAcceptance>True</PackageRequireLicenseAcceptance>
   </PropertyGroup>
 
   <ItemGroup>
-	  <PackageReference Include="System.Data.SQLite" Version="1.0.118" />
+    <None Remove="rloggerlib-settings.json" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="..\README.md">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
+  </ItemGroup>
+
+  <ItemGroup>
+	  <PackageReference Include="LiteDB" Version="5.0.21" />
+	  <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+	  <PackageReference Include="System.Data.SQLite" Version="1.0.119" PrivateAssets="Analyzers" />
 	 <PackageReference Include="System.Diagnostics.EventLog" Version="8.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="rloggerlib-settings.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
 
 </Project>

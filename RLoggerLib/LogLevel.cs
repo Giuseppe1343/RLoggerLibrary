@@ -1,10 +1,9 @@
 ﻿namespace RLoggerLib
 {
-    //TODO: Change LogType to LogLevel
     /// <summary>
-    /// Defines the type of the log
+    /// Defines the severity levels for logging.
     /// </summary>
-    public enum LogType : byte
+    public enum LogLevel
     {
         /// <summary>
         /// Logs that contain the most detailed messages. These messages may contain sensitive application data. These messages should never be enabled in a production environment.

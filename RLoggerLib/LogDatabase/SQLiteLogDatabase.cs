@@ -8,7 +8,7 @@ namespace RLoggerLib
     /// <summary>
     /// The database class for storing logs.
     /// </summary>
-    internal class LogDatabase
+    internal class SQLiteLogDatabase
     {
         private const string DbExtension = ".db";
         private readonly LogDatabaseCreationOptions _options;
@@ -17,24 +17,24 @@ namespace RLoggerLib
         private readonly string _constantFilePath;
 
         /// <summary>
-        /// Create a new instance of <see cref="LogDatabase"/> with the <paramref name="options"/>.
+        /// Create a new instance of <see cref="SQLiteLogDatabase"/> with the <paramref name="options"/>.
         /// </summary>
         /// <param name="options"></param>
-        public LogDatabase(LogDatabaseCreationOptions options)
+        public SQLiteLogDatabase(LogDatabaseCreationOptions options)
         {
             _options = options;
 
             // Normalize the directory path
-            _options.Directory = _options.Directory.NormalizeDirectoryPath();
+            //_options.Directory = _options.Directory.NormalizeDirectoryPath();
 
             // Normalize the file name
-            _options.FileName = _options.FileName.NormalizeFileName();
+            //_options.FileName = _options.FileName.NormalizeFileName();
 
             // Test the path validity
-            Helpers.TestFilePath(_options.Directory, _options.FileName);
+            //Helpers.TestFilePath(_options.Directory, _options.FileName);
 
             // Cache the constant file path
-            _constantFilePath = $"{_options.Directory}{_options.FileName}{DbExtension}";
+            _constantFilePath = "";// $"{_options.Directory}{_options.FileName}{DbExtension}";
         }
 
         /// <summary>
@@ -44,42 +44,31 @@ namespace RLoggerLib
         {
             get
             {
-                return _options.DateSuffix switch
-                {
-                    DatabaseFileNameDateSuffix.Year => $"{_options.Directory}{_options.FileName}_{DateTime.Today:yyyy}{DbExtension}",
-                    DatabaseFileNameDateSuffix.YearMonth => $"{_options.Directory}{_options.FileName}_{DateTime.Today:yyyyMM}{DbExtension}",
-                    DatabaseFileNameDateSuffix.YearMonthDay => $"{_options.Directory}{_options.FileName}_{DateTime.Today:yyyyMMdd}{DbExtension}",
-                    _ => _constantFilePath,
-                };
+                return "";
+                //return _options.DateSuffix switch
+                //{
+                //    DatabaseFileCreationInterval.yea => $"{_options.Directory}{_options.FileName}_{DateTime.Today:yyyy}{DbExtension}",
+                //    DatabaseFileCreationInterval.YearMonth => $"{_options.Directory}{_options.FileName}_{DateTime.Today:yyyyMM}{DbExtension}",
+                //    DatabaseFileCreationInterval.YearMonthDay => $"{_options.Directory}{_options.FileName}_{DateTime.Today:yyyyMMdd}{DbExtension}",
+                //    _ => _constantFilePath,
+                //};
             }
         }
 
         /// <summary>
         /// The name of the table to use.
         /// </summary>
-        private string TableName
-        {
-            get
-            {
-                return _options.TableCreationInterval switch
-                {
-                    TableCreationInterval.Daily => $"LogTable_{DateTime.Today:yyyyMMdd}",
-                    TableCreationInterval.Weekly => $"LogTable_{DateTime.Today:yyyy}_{CultureInfo.CurrentCulture.Calendar.GetWeekOfYear(DateTime.Today, CalendarWeekRule.FirstFourDayWeek, DayOfWeek.Monday)}",
-                    TableCreationInterval.Monthly => $"LogTable_{DateTime.Today:yyyyMM}",
-                    _ => "LogTable",
-                };
-            }
-        }
+        private string TableName => $"LogTable_{DateTime.Today:yyyyMMdd}";
 
         /// <summary>
-        /// Create a valid SQLite connection with the <see cref="_options."/>.
+        /// Create a valid SQLite connection with the <see cref="_options"/>.
         /// </summary>
         private SQLiteConnection ValidConnection
         {
             get
             {
                 // Create the log directory if not exist
-                Directory.CreateDirectory(_options.Directory);
+                //Directory.CreateDirectory(_options.Directory);
 
                 //Open the database file
                 var connection = new SQLiteConnection($"Data Source={AbsoluteFilePath};");
@@ -90,7 +79,7 @@ namespace RLoggerLib
                 createTableCommand.CommandText = $@"CREATE TABLE IF NOT EXISTS {TableName} (
                                                         Id INTEGER PRIMARY KEY AUTOINCREMENT,
                                                         LogDateTime INTEGER NOT NULL,
-                                                        LogType INTEGER NOT NULL,
+                                                        LogLevel INTEGER NOT NULL,
                                                         Message TEXT NOT NULL,
                                                         Source TEXT NOT NULL,
                                                         SourceId TEXT NOT NULL );";
@@ -106,7 +95,7 @@ namespace RLoggerLib
         /// <param name="log"></param>
         public void AddLog(LogEntity log)
         {
-            if (log.LogType < _options.MinRequiredSeverityForSaving)
+            if (log.LogLevel < _options.MinRequiredSeverityForSaving)
                 return;
 
             using (var connection = ValidConnection)
@@ -123,14 +112,14 @@ namespace RLoggerLib
         /// <returns></returns>
         public void GetTodaysCountAndAddLog(LogEntity log)
         {
-            if (log.LogType < _options.MinRequiredSeverityForSaving)
+            if (log.LogLevel < _options.MinRequiredSeverityForSaving)
                 return;
 
             using (var connection = ValidConnection)
             {
                 // Check if the log exists in today's table
                 var selectCommand = GetTodaysCountCommand(connection, log);
-                log.TodaysRepetitionCount = (long)selectCommand.ExecuteScalar();
+                //log.TodaysRepetitionCount = (long)selectCommand.ExecuteScalar(); //TODO
 
                 // Insert anyway
                 var insertCommand = AddCommand(connection, log);
@@ -148,9 +137,9 @@ namespace RLoggerLib
         public SQLiteCommand AddCommand(SQLiteConnection connection, LogEntity log)
         {
             var insertCommand = connection.CreateCommand();
-            insertCommand.CommandText = $@"INSERT INTO {TableName} (LogDateTime, LogType, Message, Source, SourceId) VALUES (@LogDateTime, @LogType, @Message, @Source, @SourceId);";
+            insertCommand.CommandText = $@"INSERT INTO {TableName} (LogDateTime, LogLevel, Message, Source, SourceId) VALUES (@LogDateTime, @LogLevel, @Message, @Source, @SourceId);";
             insertCommand.Parameters.AddWithValue("@LogDateTime", log.LogDateTime.Ticks);
-            insertCommand.Parameters.AddWithValue("@LogType", (byte)log.LogType);
+            insertCommand.Parameters.AddWithValue("@LogLevel", (byte)log.LogLevel);
             insertCommand.Parameters.AddWithValue("@Message", log.Message);
             insertCommand.Parameters.AddWithValue("@Source", log.Source);
             insertCommand.Parameters.AddWithValue("@SourceId", log.SourceId);
@@ -166,9 +155,9 @@ namespace RLoggerLib
         public SQLiteCommand GetTodaysCountCommand(SQLiteConnection connection, LogEntity log)
         {
             var checkCommand = connection.CreateCommand();
-            checkCommand.CommandText = $@"SELECT COUNT(*) FROM {TableName} WHERE LogDateTime >= @TodayStart AND LogType = @LogType AND Message = @Message AND Source = @Source AND SourceId = @SourceId;";
+            checkCommand.CommandText = $@"SELECT COUNT(*) FROM {TableName} WHERE LogDateTime >= @TodayStart AND LogLevel = @LogLevel AND Message = @Message AND Source = @Source AND SourceId = @SourceId;";
             checkCommand.Parameters.AddWithValue("@TodayStart", DateTime.Today.Ticks);
-            checkCommand.Parameters.AddWithValue("@LogType", (byte)log.LogType);
+            checkCommand.Parameters.AddWithValue("@LogLevel", (byte)log.LogLevel);
             checkCommand.Parameters.AddWithValue("@Message", log.Message);
             checkCommand.Parameters.AddWithValue("@Source", log.Source);
             checkCommand.Parameters.AddWithValue("@SourceId", log.SourceId);
