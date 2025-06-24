@@ -14,8 +14,15 @@ using System.Threading.Tasks;
 
 namespace RLogger.Channel
 {
-    
-    public unsafe class MemoryMappedQueue
+    // Node structure
+    // +-----------------------------------------------------------------+-----------------------------------------------------------------+
+    // | IsReady (1 bit) | NextOffset (63 bits) | Data (variable length) | IsReady (1 bit) | NextOffset (63 bits) | Data (variable length) |
+    // +-----------------------------------------------------------------+-----------------------------------------------------------------+
+    //                   |----------------------|                        ^ 
+    //                               |                                   |
+    //                               |  Points next node start offset    |     
+    //                               +-----------------------------------+
+    public class MemoryMappedQueue : IDisposable
     {
         private const int QueueSize = 1024 * 1024; // 1 MB
         private const string QueueNamePrefix = "RLoggerQueue_";
@@ -31,9 +38,12 @@ namespace RLogger.Channel
 
         private const long IsReadyMask = -0x8000000000000000L; // Mask to check if the record is ready (the most significant bit is set)
 
-        private const long WrapMarker = 0L; // Marker for wrap-around in the queue
+        private const long WrapHeader = 0L; // Marker for wrap-around in the queue
 
-        private readonly ReaderWriterLockSlim _rwLock = new();
+        private readonly Lock _headLock = new(); // Lock for head operations
+        private readonly Lock _tailLock = new(); // Lock for tail operations
+        private readonly ReaderWriterLockSlim _queueLock = new(); // Lock for resizing the queue
+
         private readonly SafeFileHandle fileHandle;
         private MemoryMappedFile mmf;
         private MemoryMappedViewAccessor accessor;
@@ -41,15 +51,17 @@ namespace RLogger.Channel
 
         public bool IsEmpty => HeadOffset == TailOffset;
 
-        private byte* headPtr;
-        private byte* tailPtr;
+        private long HeadOffset
+        {
+            get => accessor.ReadInt64(0); // Read the head offset from the file header
+            set => accessor.Write(0, value); // Write the head offset to the file header
+        }
 
-        private ref long HeadOffset => ref *(long*)headPtr; // Reference to head (dequeue start) offset in the queue
-
-        private ref long TailOffset => ref *(long*)tailPtr; // Reference to tail (enqueue start) offset in the queue
-
-        // Gets the next position in the queue based on provided offset
-        private ref long Next(long offset) => ref Unsafe.AsRef<long>(headPtr + offset);
+        private long TailOffset
+        {
+            get => accessor.ReadInt64(HeaderSize); // Read the tail offset from the file header
+            set => accessor.Write(HeaderSize, value); // Write the tail offset to the file header
+        }
 
         private long FreeSpace
         {
@@ -97,8 +109,6 @@ namespace RLogger.Channel
             mmf = MemoryMappedFile.CreateFromFile(fileHandle, null, 0, MemoryMappedFileAccess.ReadWrite, HandleInheritability.None, true); // The mapName is null because it will not be shared with other processes at the current implementation.
             accessor = mmf.CreateViewAccessor();
             fileLength = accessor.Capacity;
-            accessor.SafeMemoryMappedViewHandle.AcquirePointer(ref headPtr);
-            tailPtr = headPtr + HeaderSize; // Point to the tail offset after the head offset
         }
 
         public void Enqueue(byte[] data)
@@ -107,41 +117,49 @@ namespace RLogger.Channel
 
             int dataLength = data.Length;
 
-            // Critical section start: acquire an upgradeable read lock to check the queue state and potentially write
-            _rwLock.EnterUpgradeableReadLock();
-
             EnsureCapacity(dataLength);
 
-            long currentTail = TailOffset;
-            long newTail = currentTail + dataLength + HeaderSize;
+            _queueLock.EnterReadLock();
 
-            // Overflow check: if the new tail position exceeds the file length, we need to wrap around
-            if (newTail > fileLength)
+            try
             {
-                // Write the wrap marker at the current tail position
-                accessor.Write(TailOffset, WrapMarker);
+                long currentTail;
+                long newTail;
+                // Enter the lock to safely update the tail position
+                lock (_tailLock)
+                {
+                    currentTail = TailOffset;
+                    newTail = currentTail + dataLength + HeaderSize;
 
-                // Reset the tail to the start of the queue
-                currentTail = TailOffset = FileHeaderSize;
-                newTail = currentTail + dataLength + HeaderSize;
+                    // Overflow check: if the new tail position exceeds the file length, we need to wrap around
+                    if (newTail > fileLength)
+                    {
+                        // Write the wrap marker at the current tail position
+                        accessor.Write(TailOffset, WrapHeader);
+
+                        // Reset the tail to the start of the queue
+                        currentTail = TailOffset = FileHeaderSize;
+                        newTail = currentTail + dataLength + HeaderSize;
+                    }
+
+                    accessor.Write(TailOffset, newTail); // Write the new global tail offset
+                    accessor.Write(currentTail, newTail); // Write the next position at the current tail offset
+                }
+
+                // Now we can safely write the data to the queue
+                // After finising write, we can set the IsReady flag to indicate that the record is ready for dequeueing
+                accessor.WriteSpan(newTail + HeaderSize, data);
+                accessor.Write(currentTail, newTail | IsReadyMask); // Set the IsReady flag and write the length of the data
             }
-
-            accessor.Write(currentTail, newTail); // Write the next position at the current tail offset
-            accessor.Write(TailOffset, newTail); // Write the new global tail offset
-
-            _rwLock.ExitUpgradeableReadLock();
-            // Critical section end
-
-            // Now we can safely write the data to the queue
-            // After finising write, we can set the IsReady flag to indicate that the record is ready for dequeueing
-            accessor.WriteSpan(newTail + HeaderSize, data);
-            accessor.Write(currentTail, newTail | IsReadyMask); // Set the IsReady flag and write the length of the data
-
+            finally
+            {
+                _queueLock.ExitReadLock();
+            }
         }
 
         public bool TryDequeue(out byte[]? data)
         {
-            _rwLock.EnterReadLock();
+            _queueLock.EnterReadLock();
 
             try
             {
@@ -153,19 +171,23 @@ namespace RLogger.Channel
 
                 long head;
                 long next;
-                do
+                lock (_headLock)
                 {
                     head = HeadOffset;
-                    next = Next(HeadOffset);
-                    data = new byte[next - head - HeaderSize]; // Calculate the length of the data to read
-                    accessor.ReadSpan(head + HeaderSize, data.AsSpan()); // Read the data from the queue
-                } while (Interlocked.CompareExchange(ref HeadOffset, next, head) != head); // Attempt to move head to the next position atomically
-                
+                    next = accessor.ReadInt64(head);
+                    accessor.Write(HeadOffset, next); // Write the new global head offset
+                }
+
+                if((next & IsReadyMask) == 0) // If the next record is not ready, wait until it is
+                    SpinWait.SpinUntil(() => ((next = accessor.ReadInt64(head)) & IsReadyMask) != 0);
+
+                data = new byte[next - head - HeaderSize]; // Calculate the length of the data to read
+                accessor.ReadSpan(head + HeaderSize, data.AsSpan()); // Read the data from the queue
                 return true;
             }
             finally
             {
-                _rwLock.ExitReadLock();
+                _queueLock.ExitReadLock();
             }
         }
 
@@ -175,10 +197,12 @@ namespace RLogger.Channel
                 return;
 
             // If not enough space, acquire write lock to resize
-            _rwLock.EnterWriteLock();
+            _queueLock.EnterWriteLock();
             try
             {
-                accessor.SafeMemoryMappedViewHandle.ReleasePointer();
+                if (requiredRecordSize <= FreeSpace)
+                    return;
+
                 accessor.Dispose();
                 mmf.Dispose();
 
@@ -187,8 +211,6 @@ namespace RLogger.Channel
                 mmf = MemoryMappedFile.CreateFromFile(fileHandle, null, 0, MemoryMappedFileAccess.ReadWrite, HandleInheritability.None, true);
                 accessor = mmf.CreateViewAccessor();
                 fileLength = accessor.Capacity;
-                accessor.SafeMemoryMappedViewHandle.AcquirePointer(ref headPtr);
-                tailPtr = headPtr + HeaderSize; // Point to the tail offset after the head offset
 
                 if (HeadOffset > TailOffset)
                 {
@@ -200,7 +222,7 @@ namespace RLogger.Channel
                     // Sort the data in the queue from head to tail and place it in the newly expanded area.
                     while (true)
                     {
-                        long next = Next(current);
+                        long next = accessor.ReadInt64(current);
                         if (next == tail)
                             break;
 
@@ -222,7 +244,7 @@ namespace RLogger.Channel
             }
             finally
             {
-                _rwLock.ExitWriteLock();
+                _queueLock.ExitWriteLock();
             }
         }
 
@@ -256,11 +278,11 @@ namespace RLogger.Channel
                 }
 
                 // If the required size exceeds the stack allocation limit, use heap allocation
-                EnsureCapacity(requiredSize);
+                EnsureLength(requiredSize);
                 return _arrayToReturnToPool.AsSpan()[..requiredSize];
             }
 
-            private void EnsureCapacity(int requiredSize)
+            private void EnsureLength(int requiredSize)
             {
                 byte[]? buffer = _arrayToReturnToPool;
                 if (buffer == null)
@@ -292,23 +314,10 @@ namespace RLogger.Channel
         public static void WriteInt64(this Span<byte> span, long value)
             => Unsafe.WriteUnaligned(ref MemoryMarshal.GetReference(span), value);
 
-        public static void ReadArray(this MemoryMappedViewAccessor accessor, long offset, byte[] destination, int destinationOffset, int count)
-            => ReadSpan(accessor, offset, destination.AsSpan(destinationOffset, count));
         public static void ReadSpan(this MemoryMappedViewAccessor accessor, long offset, Span<byte> destination)
         => accessor.SafeMemoryMappedViewHandle.ReadSpan(unchecked((ulong)offset), destination);
 
         public static void WriteSpan(this MemoryMappedViewAccessor accessor, long offset, ReadOnlySpan<byte> source)
             => accessor.SafeMemoryMappedViewHandle.WriteSpan(unchecked((ulong)offset), source);
-
-        public static unsafe ref T As<T>(this MemoryMappedViewAccessor accessor) where T : struct =>
-          ref Unsafe.AsRef<T>(accessor.SafeMemoryMappedViewHandle.DangerousGetHandle().ToPointer());
-
-        public static unsafe ref T As<T>(this MemoryMappedViewAccessor accessor, long offset) where T : struct
-        {
-            if (offset < 0 || offset + Marshal.SizeOf<T>() > accessor.Capacity)
-                throw new ArgumentOutOfRangeException(nameof(offset));
-
-            return ref Unsafe.AsRef<T>((accessor.SafeMemoryMappedViewHandle.DangerousGetHandle() + (nint)offset).ToPointer());
-        }
     }
 }
