@@ -4,10 +4,10 @@ namespace RLogger.Loggers
 {
     internal class SyncLogger : IRLogger, IDisposable
     {
-        private readonly ISyncLogTarget[] _targets;
+        private readonly ILogTarget[] _targets;
         public SyncLogger(ILogTarget[] targets)
         {
-            _targets = targets.Cast<ISyncLogTarget>().ToArray();
+            _targets = targets;
         }
 
         public void Log(LogMessage logMessage)
