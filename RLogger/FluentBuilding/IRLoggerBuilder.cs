@@ -11,8 +11,7 @@ namespace RLogger.FluentBuilding
         IRLoggerBuilder AddDebugTarget(Func<ILogFormatter<string>>? opt = null);
         IRLoggerBuilder AddConsoleTarget(Func<ILogFormatter<string>>? opt = null);
         IRLoggerBuilder AddColoredConsoleTarget(Func<ILogFormatter<(string DateTime, string Level, string Id, string Message)>>? opt = null);
-        IRLoggerBuilder AddCustomSyncTarget(Func<ISyncLogTarget> targetFactory);
-        IRLoggerBuilder AddCustomAsyncTarget(Func<IAsyncLogTarget> targetFactory);
+        IRLoggerBuilder AddCustomTarget(Func<ILogTarget> targetFactory);
         IRLogger Build(bool preferSync = true);
     }
 
@@ -70,13 +69,7 @@ namespace RLogger.FluentBuilding
             return this;
         }
 
-        public IRLoggerBuilder AddCustomSyncTarget(Func<ISyncLogTarget> targetFactory)
-            => AddCustomTarget(targetFactory);
-
-        public IRLoggerBuilder AddCustomAsyncTarget(Func<IAsyncLogTarget> targetFactory)
-            => AddCustomTarget(targetFactory);
-
-        private RLoggerBuilder AddCustomTarget(Func<ILogTarget> targetFactory)
+        public IRLoggerBuilder AddCustomTarget(Func<ILogTarget> targetFactory)
         {
             ArgumentNullException.ThrowIfNull(targetFactory);
             var target = targetFactory() ?? throw new ArgumentNullException(nameof(targetFactory), "Target factory must return a valid ILogTarget instance.");

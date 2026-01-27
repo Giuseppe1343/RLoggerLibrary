@@ -26,11 +26,9 @@ namespace RLogger.Loggers
             async Task LogTask()
             {
                 while (await Reader.WaitToReadAsync()) 
-                { 
-                    // Read all log messages from the channel
-                    await foreach (LogMessage logMessage in Reader.ReadAllAsync())
+                {
+                    while (Reader.TryRead(out LogMessage? logMessage))
                     {
-
                         foreach (ILogTarget target in _targets)
                         {
                             // If the target supports async logging, log asynchronously
@@ -38,7 +36,7 @@ namespace RLogger.Loggers
                             {
                                 await asyncTarget.LogAsync(logMessage);
                             }
-                            else if (target is ISyncLogTarget syncTarget)
+                            else if (target is ILogTarget syncTarget)
                             {
                                 // If the target supports synchronous logging, log synchronously
                                 syncTarget.Log(logMessage);
@@ -56,7 +54,9 @@ namespace RLogger.Loggers
 
         public async ValueTask DisposeAsync()
         {
-            await Task.WhenAll(Reader.Completion, _loggerTask);
+            // Signal that no more messages will be written to the channel
+            Writer.Complete();
+            await _loggerTask.ConfigureAwait(false);
 
             foreach (var target in _targets)
             {

@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 
 namespace RLogger.Targets
 {
-    internal class DebugTarget : ISyncLogTarget
+    internal class DebugTarget : ILogTarget
     {
         private readonly ILogFormatter<string> _formatter;
         public DebugTarget(ILogFormatter<string>? formatter = null)

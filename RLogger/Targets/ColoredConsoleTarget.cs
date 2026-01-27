@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 
 namespace RLogger.Targets
 {
-    internal class ColoredConsoleTarget : ISyncLogTarget
+    internal class ColoredConsoleTarget : ILogTarget
     {
         private readonly ILogFormatter<(string DateTime, string Level, string Id, string Message)> _formatter;
         public ColoredConsoleTarget(ILogFormatter<(string DateTime, string Level, string Id, string Message)>? formatter = null)

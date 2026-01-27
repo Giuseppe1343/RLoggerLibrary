@@ -3,7 +3,7 @@ using System.Diagnostics;
 
 namespace RLogger.Targets
 {
-    internal class TraceTarget : ISyncLogTarget
+    internal class TraceTarget : ILogTarget
     {
         private readonly ILogFormatter<string> _formatter;
         public TraceTarget(ILogFormatter<string>? formatter = null)

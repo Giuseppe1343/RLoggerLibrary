@@ -6,12 +6,11 @@ using System.Threading.Tasks;
 
 namespace RLogger.Targets
 {
-    public interface ILogTarget { }
     public interface IAsyncLogTarget : ILogTarget
     {
         ValueTask LogAsync(LogMessage logMessage);
     }
-    public interface ISyncLogTarget : ILogTarget
+    public interface ILogTarget
     {
         void Log(LogMessage logMessage);
     }
