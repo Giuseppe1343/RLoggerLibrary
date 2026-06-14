@@ -1,21 +1,14 @@
-﻿using RLogger.Loggers;
+﻿using RLogger.FluentBuilding;
+using RLogger.Loggers;
 using RLogger.Targets;
 
 namespace RLogger
 {
-    public static class RLogger
+    public static class R
     {
-        public enum LogLevel
-        {
-            Trace,
-            Debug,
-            Information,
-            Warning,
-            Error,
-            Critical,
-        }
-        public static IRLogger Logger { get; set; }
-    }
+        public static LogLevel GlobalLogLevel { get; set; } = LogLevel.Info;
+        public static IRLogger Logger { get; } = NoOpLogger.Instance;
+        public static IRLoggerBuilder Builder() => RLoggerBuilder.Create();
 
-    
+    }
 }

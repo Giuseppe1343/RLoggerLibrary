@@ -1,10 +1,12 @@
-﻿using RLogger.Targets;
+﻿using RLogger.Persistence;
+using RLogger.Targets;
 using System.Threading.Channels;
 
 namespace RLogger.Loggers
 {
     internal class AsyncLogger : IRLogger, IAsyncDisposable
     {
+        private readonly ILogPersistence _logPersistence;
         private readonly ILogTarget[] _targets;
 
         private readonly Task _loggerTask;
@@ -12,36 +14,57 @@ namespace RLogger.Loggers
         private ChannelReader<LogMessage> Reader => _logMessageChannel.Reader;
         private ChannelWriter<LogMessage> Writer => _logMessageChannel.Writer;
 
-        public AsyncLogger(ILogTarget[] targets)
+        public AsyncLogger(ILogPersistence logPersistence, ILogTarget[] targets)
         {
+            _logPersistence = logPersistence;
             _targets = targets;
-            _loggerTask = Task.Factory.StartNew(LogTask, TaskCreationOptions.LongRunning);
-            _logMessageChannel = System.Threading.Channels.Channel.CreateUnbounded<LogMessage>(new()
+            _logMessageChannel = Channel.CreateUnbounded<LogMessage>(new UnboundedChannelOptions
             {
-                AllowSynchronousContinuations = true,
+                AllowSynchronousContinuations = false,
                 SingleReader = true,
                 SingleWriter = false
             });
+            _loggerTask = LogTask();
+            return;
 
             async Task LogTask()
             {
+                // First, recover any pending log messages from the persistence layer and process them
+                foreach (var recoveredLogMessage  in _logPersistence.GetPending())
+                {
+                    foreach (var target in _targets)
+                    {
+                        // If the target supports async logging, log asynchronously
+                        if (target is IAsyncLogTarget asyncTarget)
+                        {
+                            await asyncTarget.LogAsync(recoveredLogMessage);
+                            continue;
+                        }
+
+                        // If the target does not support async logging, log synchronously
+                        target.Log(recoveredLogMessage);
+                    }
+                    _logPersistence.Acknowledge(recoveredLogMessage.LogId);
+                }
+
+                // Continuously read log messages from the channel and process them
                 while (await Reader.WaitToReadAsync()) 
                 {
                     while (Reader.TryRead(out LogMessage? logMessage))
                     {
-                        foreach (ILogTarget target in _targets)
+                        foreach (var target in _targets)
                         {
                             // If the target supports async logging, log asynchronously
                             if (target is IAsyncLogTarget asyncTarget)
                             {
                                 await asyncTarget.LogAsync(logMessage);
+                                continue;
                             }
-                            else if (target is ILogTarget syncTarget)
-                            {
-                                // If the target supports synchronous logging, log synchronously
-                                syncTarget.Log(logMessage);
-                            }
+                            
+                            // If the target does not support async logging, log synchronously
+                            target.Log(logMessage);
                         }
+                        _logPersistence.Acknowledge(logMessage.LogId);
                     }
                 }
             }
@@ -49,6 +72,7 @@ namespace RLogger.Loggers
 
         public void Log(LogMessage logMessage)
         {
+            _logPersistence.Write(logMessage);
             Writer.TryWrite(logMessage);
         }
 
@@ -58,6 +82,9 @@ namespace RLogger.Loggers
             Writer.Complete();
             await _loggerTask.ConfigureAwait(false);
 
+            if (_logPersistence is IDisposable disposable)
+                disposable.Dispose();
+
             foreach (var target in _targets)
             {
                 switch (target)
@@ -65,13 +92,14 @@ namespace RLogger.Loggers
                     case IAsyncDisposable asyncDisposable:
                         await asyncDisposable.DisposeAsync();
                         break;
-                    case IDisposable disposable:
-                        disposable.Dispose();
+                    case IDisposable syncDisposable:
+                        syncDisposable.Dispose();
                         break;
                     default:
                         continue;
                 }
             }
+
         }
     }
 }

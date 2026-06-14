@@ -5,6 +5,7 @@ namespace RLogger.Loggers
     internal class SyncLogger : IRLogger, IDisposable
     {
         private readonly ILogTarget[] _targets;
+
         public SyncLogger(ILogTarget[] targets)
         {
             _targets = targets;
@@ -20,17 +21,8 @@ namespace RLogger.Loggers
         {
             foreach (var target in _targets.AsSpan())
             {
-                if (target is IDisposable disposable)
-                {
-                    try
-                    {
-                        disposable.Dispose();
-                    }
-                    catch
-                    {
-                        // TODO: Internal logging or handle exceptions during disposal
-                    }
-                }
+                if (target is IDisposable disposable) 
+                    disposable.Dispose();
             }
         }
     }

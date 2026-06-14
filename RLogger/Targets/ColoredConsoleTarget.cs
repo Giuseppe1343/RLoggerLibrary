@@ -10,42 +10,68 @@ namespace RLogger.Targets
 {
     internal class ColoredConsoleTarget : ILogTarget
     {
-        private readonly ILogFormatter<(string DateTime, string Level, string Id, string Message)> _formatter;
-        public ColoredConsoleTarget(ILogFormatter<(string DateTime, string Level, string Id, string Message)>? formatter = null)
+        private readonly LogLevel _minLogLevel;
+        private readonly ILogFormatter _formatter;
+        public ColoredConsoleTarget(LogLevel? minLogLevel = null, ILogFormatter? formatter = null)
         {
-            _formatter = formatter ?? SplittedStringFormatter.Instance;
+            _minLogLevel = minLogLevel ?? R.GlobalLogLevel;
+            _formatter = formatter ?? LogFormatter.DefaultFormatter;
         }
         public void Log(LogMessage logMessage)
         {
-            var (dateTime, level, id, message) = _formatter.ApplyFormat(logMessage);
-            // Set console color based on log level
-            Console.Write(dateTime);
+            if (logMessage.Level < _minLogLevel)
+                return;
+
+            var builder = new StringBuilder();
+
+            // Format timestamp
+            _formatter.FormatTimestamp(builder, logMessage.Timestamp);
+            Console.Out.Write(builder);
+            builder.Length = 0;
+
+            // Format log level and set console color
+            _formatter.FormatLevel(builder, logMessage.Level);
             switch (logMessage.Level)
             {
-                case RLogger.LogLevel.Trace:
-                case RLogger.LogLevel.Debug:
+                case LogLevel.Trace:
+                case LogLevel.Debug:
                     Console.ForegroundColor = ConsoleColor.Gray;
                     break;
-                case RLogger.LogLevel.Information:
+                case LogLevel.Info:
                     Console.ForegroundColor = ConsoleColor.White;
                     break;
-                case RLogger.LogLevel.Warning:
+                case LogLevel.Warning:
                     Console.ForegroundColor = ConsoleColor.Yellow;
                     break;
-                case RLogger.LogLevel.Error:
+                case LogLevel.Error:
                     Console.ForegroundColor = ConsoleColor.Red;
                     break;
-                case RLogger.LogLevel.Critical:
+                case LogLevel.Critical:
                     Console.ForegroundColor = ConsoleColor.DarkRed;
                     break;
                 default:
                     Console.ResetColor();
                     break;
             }
-            Console.Write(level);
+            Console.Out.Write(builder);
+            builder.Length = 0;
             Console.ResetColor();
-            Console.Write(id);
-            Console.WriteLine(message);
+
+            // Format rest of the log message
+            if (!string.IsNullOrEmpty(logMessage.Category))
+            {
+                builder.Append(' ');
+                _formatter.FormatCategory(builder, logMessage.Category);
+            }
+            if (logMessage.EventId != 0)
+            {
+                builder.Append(' ');
+                _formatter.FormatEventId(builder, logMessage.EventId);
+            }
+            builder.Append(' ');
+            _formatter.FormatMessage(builder, logMessage.Message);
+            Console.Out.Write(builder);
+            Console.Out.WriteLine();
         }
     }
 }

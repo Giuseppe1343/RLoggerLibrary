@@ -10,14 +10,21 @@ namespace RLogger.Targets
 {
     internal class ConsoleTarget : ILogTarget
     {
-        private readonly ILogFormatter<string> _formatter;
-        public ConsoleTarget(ILogFormatter<string>? formatter = null)
+        private readonly LogLevel _minLogLevel;
+        private readonly ILogFormatter _formatter;
+        public ConsoleTarget(LogLevel? minLogLevel = null, ILogFormatter? formatter = null)
         {
-            _formatter = formatter ?? DefaultStringFormatter.Instance;
+            _minLogLevel = minLogLevel ?? R.GlobalLogLevel;
+            _formatter = formatter ?? LogFormatter.DefaultFormatter;
         }
         public void Log(LogMessage logMessage)
         {
-            Console.WriteLine(_formatter.ApplyFormat(logMessage));
+            if (logMessage.Level < _minLogLevel)
+                return;
+            var builder = new StringBuilder();
+            _formatter.FormatLogMessage(builder, logMessage);
+            Console.Out.Write(builder);
+            Console.Out.WriteLine();
         }
     }
 }
